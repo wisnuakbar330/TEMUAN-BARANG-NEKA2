@@ -1,4 +1,4 @@
-// --- DATA AWAL SIMULASI ---
+// --- DATA AWAL DENGAN FOTO BARANG REALISTIS ---
 const INITIAL_DATA = [
     {
         id: "RPT-1001",
@@ -10,8 +10,8 @@ const INITIAL_DATA = [
         location: "Kantin Sekolah",
         description: "Botol minum Tupperware warna biru tua kapasitas 750ml dengan stiker anime.",
         tags: ["tupperware", "biru", "750ml", "stiker", "kantin"],
-        image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&auto=format&fit=crop&q=60",
-        date: "2026-03-28 09:30",
+        image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500&auto=format&fit=crop&q=80",
+        date: "2026-10-22 09:30",
         status: "Aktif",
         claimedBy: null
     },
@@ -25,31 +25,31 @@ const INITIAL_DATA = [
         location: "Kantin Sekolah",
         description: "Hilang botol Tupperware warna biru dekat meja kantin.",
         tags: ["botol", "biru", "tupperware", "kantin", "stiker"],
-        image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&auto=format&fit=crop&q=60",
-        date: "2026-03-28 10:15",
+        image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500&auto=format&fit=crop&q=80",
+        date: "2026-10-22 10:15",
         status: "Aktif",
         claimedBy: null
     },
     {
         id: "RPT-1003",
-        type: "Hilang",
+        type: "Temuan",
         reporterName: "Ahmad Rizky",
         reporterClass: "Kelas 12",
         itemName: "Kunci Motor Honda + Gantungan Leather",
         category: "Kunci",
         location: "Lapangan Olahraga",
-        description: "Kunci motor Honda dengan dompet stnk kecil warna cokelat kulit.",
-        tags: ["kunci", "motor", "honda", "dompet", "stnk", "kulit", "cokelat"],
-        image: "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=400&auto=format&fit=crop&q=60",
-        date: "2026-03-27 14:00",
+        description: "Kunci motor Honda ditemukan tergeletak di tribun lapangan olahraga.",
+        tags: ["kunci", "motor", "honda", "dompet", "stnk", "kulit"],
+        image: "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&auto=format&fit=crop&q=80",
+        date: "2026-10-21 14:00",
         status: "Aktif",
         claimedBy: null
     }
 ];
 
 let reportsData = [];
-let currentUser = null; // { name, role: 'penemu'|'admin', class }
-let activeImageBase64 = null;
+let currentUser = null; 
+let activeImageBase64 = null; // Menyimpan data gambar Base64 dari foto hasil pemindaian/kamera
 
 // --- INISIALISASI ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -84,6 +84,169 @@ function saveToLocalStorage() {
     localStorage.setItem('findit_reports', JSON.stringify(reportsData));
 }
 
+// --- FUNGSI MENGAMBIL FOTO/UNGGAH FOTO LANGSUNG ---
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        // Kompresi atau pembacaan gambar menjadi format DataURL (Base64)
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            activeImageBase64 = e.target.result; // Menyimpan foto asli yang di-upload/foto kamera
+            const previewImg = document.getElementById('imagePreview');
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            if (previewImg && previewContainer) {
+                previewImg.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function clearImagePreview() {
+    activeImageBase64 = null;
+    const fileInput = document.getElementById('itemImage');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    if (fileInput) fileInput.value = '';
+    if (previewContainer) previewContainer.classList.add('hidden');
+}
+
+// --- SUBMIT LAPORAN DENGAN FOTO LANGSUNG ---
+function submitReport(event) {
+    event.preventDefault();
+    if (!currentUser) {
+        alert("Silakan login terlebih dahulu untuk memfoto dan melaporkan barang.");
+        return;
+    }
+
+    const reportTypeEl = document.querySelector('input[name="reportType"]:checked');
+    const itemNameEl = document.getElementById('itemName');
+    const categoryEl = document.getElementById('itemCategory');
+    const locationEl = document.getElementById('itemLocation');
+    const descriptionEl = document.getElementById('itemDesc');
+
+    if (!reportTypeEl || !itemNameEl || !descriptionEl) return;
+
+    const reportType = reportTypeEl.value;
+    const itemName = itemNameEl.value.trim();
+    const category = categoryEl ? categoryEl.value : 'Lainnya';
+    const location = locationEl ? locationEl.value : 'Lainnya';
+    const description = descriptionEl.value.trim();
+
+    // Ekstraksi Tag Otomatis oleh AI
+    const stopWords = ["yang", "di", "ke", "dari", "pada", "dalam", "dengan", "dan", "atau", "ini", "itu", "ada"];
+    const words = (itemName + " " + description).toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
+    const tags = [...new Set(words.filter(w => w.length > 2 && !stopWords.includes(w)))];
+
+    // Placeholder jika penemu/pelapor tidak mengunggah foto
+    const fallbackImg = reportType === 'Hilang' 
+        ? "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=500&auto=format&fit=crop&q=80"
+        : "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&auto=format&fit=crop&q=80";
+
+    // FOTO YANG DITAMPILKAN ADALAH FOTO HASIL KAMERA / UPLOAD (activeImageBase64)
+    const finalImage = activeImageBase64 ? activeImageBase64 : fallbackImg;
+
+    const newReport = {
+        id: "RPT-" + Math.floor(1000 + Math.random() * 9000),
+        type: reportType,
+        reporterName: currentUser.name,
+        reporterClass: currentUser.class,
+        itemName,
+        category,
+        location,
+        description,
+        tags,
+        image: finalImage, // Gambar foto barang langsung disimpan
+        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: "Aktif",
+        claimedBy: null
+    };
+
+    reportsData.unshift(newReport);
+    saveToLocalStorage();
+
+    // Reset Form
+    const form = document.getElementById('reportForm');
+    if (form) form.reset();
+    clearImagePreview();
+
+    generateAutoTags();
+    renderData();
+    calculateAIMatches();
+    updateStatistics();
+
+    alert("Berhasil! Laporan barang beserta foto langsung telah ditambahkan ke layar utama.");
+}
+
+// --- RENDER DAFAR BARANG DI LAYAR UTAMA (KATALOG) ---
+function renderData() {
+    const container = document.getElementById('itemsContainer');
+    const searchInput = document.getElementById('searchInput');
+    const filterTypeEl = document.getElementById('filterType');
+
+    if (!container) return;
+
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const filterType = filterTypeEl ? filterTypeEl.value : 'Semua';
+
+    const filtered = reportsData.filter(item => {
+        const itemTags = item.tags || [];
+        const matchesSearch = item.itemName.toLowerCase().includes(search) || 
+                              item.description.toLowerCase().includes(search) || 
+                              item.location.toLowerCase().includes(search) ||
+                              itemTags.some(t => t.toLowerCase().includes(search));
+        
+        let matchesType = true;
+        if (filterType === 'Selesai') {
+            matchesType = (item.status === 'Selesai');
+        } else if (filterType !== 'Semua') {
+            matchesType = (item.type === filterType && item.status === 'Aktif');
+        }
+
+        return matchesSearch && matchesType;
+    });
+
+    const badge = document.getElementById('totalItemsBadge');
+    if (badge) badge.innerText = `${filtered.length} Barang`;
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full py-10 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+                <i class="fa-solid fa-box-open text-3xl text-slate-300 mb-2"></i>
+                <p class="text-xs text-slate-500 font-semibold">Tidak ditemukan laporan yang cocok.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Tampilkan Foto Barang secara langsung di Feed Layar Utama
+    container.innerHTML = filtered.map(item => `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
+            <div>
+                <!-- MENAMPILKAN FOTO BARANG LANGSUNG -->
+                <div class="relative h-44 bg-slate-100">
+                    <img src="${item.image}" alt="${item.itemName}" class="w-full h-full object-cover">
+                    <span class="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold text-white ${item.type === 'Hilang' ? 'bg-rose-500' : 'bg-emerald-500'} shadow">
+                        ${item.type}
+                    </span>
+                    ${item.status === 'Selesai' ? '<span class="absolute top-2 right-2 bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow">VERIFIKASI TERKLAIM</span>' : ''}
+                </div>
+                <div class="p-3.5 space-y-1">
+                    <h4 class="font-bold text-xs text-slate-800 line-clamp-1">${item.itemName}</h4>
+                    <p class="text-[11px] text-slate-500 line-clamp-2">${item.description}</p>
+                    <p class="text-[10px] text-indigo-600 font-semibold"><i class="fa-solid fa-location-dot"></i> ${item.location}</p>
+                </div>
+            </div>
+            <div class="p-3 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-[10px] text-slate-400">Oleh: ${item.reporterName}</span>
+                <button onclick="openDetailModal('${item.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1 rounded-lg transition">
+                    Lihat Foto & Detail <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
 // --- SWITCH TAB MENU ---
 function switchTab(tab) {
     const btnLapor = document.getElementById('tabLapor');
@@ -94,19 +257,16 @@ function switchTab(tab) {
     const contentMatch = document.getElementById('tabContentPencocokan');
     const contentStat = document.getElementById('tabContentStatistik');
 
-    // Reset style semua tombol tab
     [btnLapor, btnMatch, btnStat].forEach(btn => {
         if (btn) {
             btn.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-100 relative";
         }
     });
 
-    // Sembunyikan semua konten tab
     if (contentLapor) contentLapor.classList.add('hidden');
     if (contentMatch) contentMatch.classList.add('hidden');
     if (contentStat) contentStat.classList.add('hidden');
 
-    // Tampilkan tab yang dipilih
     if (tab === 'lapor') {
         if (btnLapor) btnLapor.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow-sm";
         if (contentLapor) contentLapor.classList.remove('hidden');
@@ -122,7 +282,7 @@ function switchTab(tab) {
     }
 }
 
-// --- SYSTEM LOGIN & MODAL ---
+// --- SYSTEM LOGIN & AUTH ---
 function openLoginModal(roleType) {
     const modal = document.getElementById('loginModal');
     const roleInput = document.getElementById('loginRoleType');
@@ -163,7 +323,7 @@ function handleLoginSubmit(event) {
 
     if (roleType === 'admin') {
         if (pass !== 'admin123') {
-            alert('Password Admin salah! (Gunakan password default: admin123)');
+            alert('Password Admin salah! (Password default: admin123)');
             return;
         }
         currentUser = { name, role: 'admin', class: 'Guru BK / Tim Kesiswaan' };
@@ -177,7 +337,7 @@ function handleLoginSubmit(event) {
     renderData();
     calculateAIMatches();
     updateStatistics();
-    alert(`Selamat datang, ${currentUser.name}! Anda berhasil masuk.`);
+    alert(`Selamat datang, ${currentUser.name}! Anda dapat mengambil foto dan mengunggah barang temuan.`);
 }
 
 function logout() {
@@ -238,156 +398,7 @@ function updateAuthUI() {
     }
 }
 
-// --- PREVIEW FOTO ---
-function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            activeImageBase64 = e.target.result;
-            const previewImg = document.getElementById('imagePreview');
-            const previewContainer = document.getElementById('imagePreviewContainer');
-            if (previewImg && previewContainer) {
-                previewImg.src = e.target.result;
-                previewContainer.classList.remove('hidden');
-            }
-        }
-        reader.readAsDataURL(file);
-    }
-}
-
-// --- SUBMIT LAPORAN ---
-function submitReport(event) {
-    event.preventDefault();
-    if (!currentUser) {
-        alert("Silakan login terlebih dahulu untuk membuat laporan.");
-        return;
-    }
-
-    const reportTypeEl = document.querySelector('input[name="reportType"]:checked');
-    const itemNameEl = document.getElementById('itemName');
-    const categoryEl = document.getElementById('itemCategory');
-    const locationEl = document.getElementById('itemLocation');
-    const descriptionEl = document.getElementById('itemDesc');
-
-    if (!reportTypeEl || !itemNameEl || !descriptionEl) return;
-
-    const reportType = reportTypeEl.value;
-    const itemName = itemNameEl.value.trim();
-    const category = categoryEl ? categoryEl.value : 'Lainnya';
-    const location = locationEl ? locationEl.value : 'Lainnya';
-    const description = descriptionEl.value.trim();
-
-    const stopWords = ["yang", "di", "ke", "dari", "pada", "dalam", "dengan", "dan", "atau", "ini", "itu", "ada"];
-    const words = (itemName + " " + description).toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
-    const tags = [...new Set(words.filter(w => w.length > 2 && !stopWords.includes(w)))];
-
-    const defaultImg = reportType === 'Hilang' 
-        ? "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=400&auto=format&fit=crop&q=60"
-        : "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=400&auto=format&fit=crop&q=60";
-
-    const newReport = {
-        id: "RPT-" + Math.floor(1000 + Math.random() * 9000),
-        type: reportType,
-        reporterName: currentUser.name,
-        reporterClass: currentUser.class,
-        itemName,
-        category,
-        location,
-        description,
-        tags,
-        image: activeImageBase64 || defaultImg,
-        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: "Aktif",
-        claimedBy: null
-    };
-
-    reportsData.unshift(newReport);
-    saveToLocalStorage();
-
-    const form = document.getElementById('reportForm');
-    if (form) form.reset();
-    
-    const imageContainer = document.getElementById('imagePreviewContainer');
-    if (imageContainer) imageContainer.classList.add('hidden');
-    activeImageBase64 = null;
-
-    generateAutoTags();
-    renderData();
-    calculateAIMatches();
-    updateStatistics();
-
-    alert("Laporan Anda berhasil dipublikasikan!");
-}
-
-// --- RENDER FEEDS BARANG ---
-function renderData() {
-    const container = document.getElementById('itemsContainer');
-    const searchInput = document.getElementById('searchInput');
-    const filterTypeEl = document.getElementById('filterType');
-
-    if (!container) return;
-
-    const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const filterType = filterTypeEl ? filterTypeEl.value : 'Semua';
-
-    const filtered = reportsData.filter(item => {
-        const itemTags = item.tags || [];
-        const matchesSearch = item.itemName.toLowerCase().includes(search) || 
-                              item.description.toLowerCase().includes(search) || 
-                              item.location.toLowerCase().includes(search) ||
-                              itemTags.some(t => t.toLowerCase().includes(search));
-        
-        let matchesType = true;
-        if (filterType === 'Selesai') {
-            matchesType = (item.status === 'Selesai');
-        } else if (filterType !== 'Semua') {
-            matchesType = (item.type === filterType && item.status === 'Aktif');
-        }
-
-        return matchesSearch && matchesType;
-    });
-
-    const badge = document.getElementById('totalItemsBadge');
-    if (badge) badge.innerText = `${filtered.length} Barang`;
-
-    if (filtered.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-full py-10 text-center bg-white rounded-2xl border border-dashed border-slate-300">
-                <i class="fa-solid fa-box-open text-3xl text-slate-300 mb-2"></i>
-                <p class="text-xs text-slate-500 font-semibold">Tidak ditemukan laporan yang cocok.</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = filtered.map(item => `
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
-            <div>
-                <div class="relative h-36 bg-slate-100">
-                    <img src="${item.image}" class="w-full h-full object-cover">
-                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${item.type === 'Hilang' ? 'bg-rose-500' : 'bg-emerald-500'}">
-                        ${item.type}
-                    </span>
-                    ${item.status === 'Selesai' ? '<span class="absolute top-2 right-2 bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">VERIFIKASI TERKLAIM</span>' : ''}
-                </div>
-                <div class="p-3 space-y-1">
-                    <h4 class="font-bold text-xs text-slate-800">${item.itemName}</h4>
-                    <p class="text-[11px] text-slate-500 line-clamp-2">${item.description}</p>
-                    <p class="text-[10px] text-indigo-600 font-semibold"><i class="fa-solid fa-location-dot"></i> ${item.location}</p>
-                </div>
-            </div>
-            <div class="p-3 border-t border-slate-100 flex items-center justify-between">
-                <span class="text-[10px] text-slate-400">Oleh: ${item.reporterName}</span>
-                <button onclick="openDetailModal('${item.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1 rounded-lg">
-                    Detail <i class="fa-solid fa-chevron-right text-[10px]"></i>
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// --- AI SMART MATCHING ENGINE ---
+// --- AI MATCHING ENGINE ---
 function calculateAIMatches() {
     const container = document.getElementById('aiMatchContainer');
     const matchBadge = document.getElementById('matchBadge');
@@ -403,13 +414,9 @@ function calculateAIMatches() {
             const lostTags = lost.tags || [];
             const foundTags = found.tags || [];
 
-            // 1. Kategori sama (+35%)
             if (lost.category === found.category) score += 35;
-
-            // 2. Lokasi sama (+25%)
             if (lost.location === found.location) score += 25;
 
-            // 3. Kesamaan Tag / Kata Kunci (+40%)
             const sharedTags = lostTags.filter(t => foundTags.includes(t));
             const minLen = Math.min(lostTags.length, foundTags.length);
             if (minLen > 0) {
@@ -417,29 +424,20 @@ function calculateAIMatches() {
                 score += Math.round(ratio * 40);
             }
 
-            score = Math.min(score, 98); // Batas nilai maksimum kecocokan
+            score = Math.min(score, 98);
 
             if (score >= 40) {
-                matches.push({
-                    lost,
-                    found,
-                    score,
-                    sharedTags
-                });
+                matches.push({ lost, found, score, sharedTags });
             }
         });
     });
 
     matches.sort((a, b) => b.score - a.score);
 
-    // Update Badge Notifikasi AI Match
     if (matchBadge) {
         matchBadge.innerText = matches.length;
-        if (matches.length > 0) {
-            matchBadge.classList.remove('hidden');
-        } else {
-            matchBadge.classList.add('hidden');
-        }
+        if (matches.length > 0) matchBadge.classList.remove('hidden');
+        else matchBadge.classList.add('hidden');
     }
 
     if (!container) return;
@@ -449,7 +447,6 @@ function calculateAIMatches() {
             <div class="py-10 text-center bg-white rounded-2xl border border-dashed border-slate-300">
                 <i class="fa-solid fa-wand-magic-sparkles text-3xl text-indigo-300 mb-2"></i>
                 <p class="text-xs font-semibold text-slate-600">Belum ada potensi kecocokan yang terdeteksi oleh AI.</p>
-                <p class="text-[11px] text-slate-400 mt-1">AI akan otomatis mencocokkan jika ada laporan barang hilang & temuan yang serupa.</p>
             </div>
         `;
         return;
@@ -465,18 +462,22 @@ function calculateAIMatches() {
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-100">
-                    <span class="text-[10px] font-bold text-rose-600 uppercase">Barang Hilang</span>
-                    <h5 class="font-bold text-xs text-slate-800 mt-0.5">${m.lost.itemName}</h5>
-                    <p class="text-[11px] text-slate-600 mt-1 line-clamp-2">${m.lost.description}</p>
-                    <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-user mr-1"></i>${m.lost.reporterName} (${m.lost.reporterClass})</p>
+                <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-100 flex gap-2">
+                    <img src="${m.lost.image}" class="w-14 h-14 object-cover rounded-lg">
+                    <div>
+                        <span class="text-[10px] font-bold text-rose-600 uppercase">Barang Hilang</span>
+                        <h5 class="font-bold text-xs text-slate-800">${m.lost.itemName}</h5>
+                        <p class="text-[10px] text-slate-500 line-clamp-1">${m.lost.description}</p>
+                    </div>
                 </div>
 
-                <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100">
-                    <span class="text-[10px] font-bold text-emerald-600 uppercase">Barang Temuan</span>
-                    <h5 class="font-bold text-xs text-slate-800 mt-0.5">${m.found.itemName}</h5>
-                    <p class="text-[11px] text-slate-600 mt-1 line-clamp-2">${m.found.description}</p>
-                    <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-user mr-1"></i>${m.found.reporterName} (${m.found.reporterClass})</p>
+                <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 flex gap-2">
+                    <img src="${m.found.image}" class="w-14 h-14 object-cover rounded-lg">
+                    <div>
+                        <span class="text-[10px] font-bold text-emerald-600 uppercase">Barang Temuan</span>
+                        <h5 class="font-bold text-xs text-slate-800">${m.found.itemName}</h5>
+                        <p class="text-[10px] text-slate-500 line-clamp-1">${m.found.description}</p>
+                    </div>
                 </div>
             </div>
 
@@ -485,9 +486,6 @@ function calculateAIMatches() {
                     <span class="text-[10px] font-bold text-slate-400">Kata Kunci Cocok:</span>
                     ${m.sharedTags.map(t => `<span class="bg-indigo-50 text-indigo-600 text-[10px] font-medium px-1.5 py-0.5 rounded">#${t}</span>`).join('')}
                 </div>
-                <button onclick="openClaimProcess('${m.lost.id}', '${m.found.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-sm flex items-center gap-1">
-                    <i class="fa-solid fa-handshake"></i> Hubungkan Laporan
-                </button>
             </div>
         </div>
     `).join('');
@@ -511,7 +509,7 @@ function updateStatistics() {
     if (elSelesai) elSelesai.innerText = selesai;
 }
 
-// --- MODAL DETAIL & PENGAMBILAN BARANG ---
+// --- MODAL DETAIL & TAMPILAN FOTO PENUH ---
 function openDetailModal(id) {
     const item = reportsData.find(r => r.id === id);
     if (!item) return;
@@ -524,20 +522,22 @@ function openDetailModal(id) {
 
     content.innerHTML = `
         <div class="space-y-3">
-            <div class="relative h-44 bg-slate-100 rounded-xl overflow-hidden">
-                <img src="${item.image}" class="w-full h-full object-cover">
-                <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${item.type === 'Hilang' ? 'bg-rose-500' : 'bg-emerald-500'}">
+            <!-- DISPLAY FOTO ASLI HASIL KAMERA/UPLOAD DI MODAL -->
+            <div class="relative h-56 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                <img src="${item.image}" alt="${item.itemName}" class="w-full h-full object-cover">
+                <span class="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold text-white ${item.type === 'Hilang' ? 'bg-rose-500' : 'bg-emerald-500'}">
                     ${item.type}
                 </span>
             </div>
 
-            <h3 class="font-bold text-sm text-slate-800">${item.itemName}</h3>
-            <p class="text-xs text-slate-600">${item.description}</p>
+            <h3 class="font-bold text-base text-slate-800">${item.itemName}</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">${item.description}</p>
 
-            <div class="bg-slate-50 p-2.5 rounded-xl border text-xs space-y-1">
-                <p><strong>Lokasi:</strong> ${item.location}</p>
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                <p><strong>Lokasi Kejadian:</strong> ${item.location}</p>
                 <p><strong>Pelapor:</strong> ${item.reporterName} (${item.reporterClass})</p>
-                <p><strong>Status Laporan:</strong> ${item.status}</p>
+                <p><strong>Waktu Lapor:</strong> ${item.date}</p>
+                <p><strong>Status:</strong> ${item.status}</p>
                 ${item.claimedBy ? `<p class="text-emerald-600 font-bold"><strong>Pengambil Terverifikasi:</strong> ${item.claimedBy}</p>` : ''}
             </div>
 
@@ -545,23 +545,23 @@ function openDetailModal(id) {
                 ${item.status === 'Aktif' ? `
                     ${isAdmin ? `
                         <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-2">
-                            <p class="text-xs font-bold text-amber-800">Verifikasi Fisik Pengambil (Khusus BK/Admin):</p>
-                            <input type="text" id="claimerInputName" placeholder="Masukkan Nama Siswa Pengambil" class="w-full px-2 py-1.5 text-xs border rounded-lg focus:outline-none">
-                            <button onclick="verifyClaimByAdmin('${item.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded-lg text-xs transition">
-                                Verifikasi & Selesaikan Laporan
+                            <p class="text-xs font-bold text-amber-800">Verifikasi Pengambil (Admin BK):</p>
+                            <input type="text" id="claimerInputName" placeholder="Nama Siswa Pengambil" class="w-full px-2 py-1.5 text-xs border rounded-lg focus:outline-none">
+                            <button onclick="verifyClaimByAdmin('${item.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition">
+                                Selesaikan & Verifikasi Pengambilan
                             </button>
                         </div>
                     ` : `
                         <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-center space-y-2">
-                            <p class="text-xs text-indigo-800 font-medium">Ingin mengambil barang ini?</p>
+                            <p class="text-xs text-indigo-800 font-medium">Ini barang Anda yang hilang?</p>
                             <button onclick="claimNotice('${item.id}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition">
-                                <i class="fa-solid fa-hand-holding mr-1"></i> Pengajuan Klaim Pengambilan
+                                <i class="fa-solid fa-hand-holding mr-1"></i> Klaim Pengambilan di Ruang BK
                             </button>
                         </div>
                     `}
                 ` : `
                     <div class="text-center bg-slate-100 py-2 rounded-xl text-xs font-bold text-slate-500">
-                        Barang ini telah resmi diserahkan & diverifikasi oleh BK.
+                        Barang ini telah diverifikasi & diserahkan oleh BK.
                     </div>
                 `}
             </div>
@@ -574,7 +574,7 @@ function openDetailModal(id) {
 function verifyClaimByAdmin(id) {
     const claimerName = document.getElementById('claimerInputName')?.value.trim();
     if (!claimerName) {
-        alert("Harap masukkan nama siswa yang mengambil barang untuk arsip verifikasi BK.");
+        alert("Masukkan nama siswa pengambil barang.");
         return;
     }
 
@@ -587,16 +587,12 @@ function verifyClaimByAdmin(id) {
         renderData();
         calculateAIMatches();
         updateStatistics();
-        alert(`Verifikasi Berhasil! Barang resmi diserahkan kepada: ${claimerName}`);
+        alert(`Verifikasi berhasil! Barang diserahkan kepada ${claimerName}`);
     }
 }
 
 function claimNotice(id) {
-    alert(`[PETUNJUK PENGAMBILAN]\nSilakan temui Guru BK di Ruang BK dengan menunjukkan Kartu Pelajar untuk mengambil barang laporan ID: ${id}.`);
-}
-
-function openClaimProcess(lostId, foundId) {
-    alert(`[KLAIM DIPROSES VIA AI]\nSistem mencatat potensi kecocokan Laporan ${lostId} & ${foundId}.\n\nSilakan menuju Ruang BK untuk pencocokan fisik.`);
+    alert(`[PETUNJUK PENGAMBILAN]\nTunjukkan Kartu Pelajar Anda ke Guru BK di Ruang BK untuk mencocokkan fisik barang ini (ID: ${id}).`);
 }
 
 function closeModal() {
@@ -604,7 +600,6 @@ function closeModal() {
     if (modal) modal.classList.add('hidden');
 }
 
-// --- FITUR TAMBAHAN & UTILS ---
 function generateAutoTags() {
     const text = document.getElementById('itemDesc')?.value || '';
     const container = document.getElementById('tagContainer');
@@ -614,7 +609,7 @@ function generateAutoTags() {
     const words = text.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
     const unique = [...new Set(words)].slice(0, 5);
 
-    container.innerHTML = unique.map(t => `<span class="bg-indigo-100 text-indigo-700 text-[10px] font-medium px-1.5 py-0.5 rounded">#${t}</span>`).join('') || '<span class="text-[10px] text-slate-400 italic">Ketik deskripsi untuk tag otomatis...</span>';
+    container.innerHTML = unique.map(t => `<span class="bg-indigo-100 text-indigo-700 text-[10px] font-medium px-1.5 py-0.5 rounded">#${t}</span>`).join('') || '<span class="text-[10px] text-slate-400 italic">Ketik deskripsi...</span>';
 }
 
 function exportData() {
@@ -628,7 +623,7 @@ function exportData() {
 }
 
 function resetData() {
-    if (confirm("Reset data ke setelan awal contoh?")) {
+    if (confirm("Reset data ke setelan awal?")) {
         reportsData = [...INITIAL_DATA];
         saveToLocalStorage();
         renderData();
@@ -638,7 +633,6 @@ function resetData() {
     }
 }
 
-// --- FLOATING AI CHATBOT ---
 function toggleChatbot() {
     const window = document.getElementById('chatWindow');
     if (window) window.classList.toggle('hidden');
@@ -648,33 +642,18 @@ function sendChatMessage(event) {
     event.preventDefault();
     const input = document.getElementById('chatInput');
     if (!input) return;
-
     const query = input.value.trim();
     if (!query) return;
 
     const chatLogs = document.getElementById('chatLogs');
     if (!chatLogs) return;
 
-    chatLogs.innerHTML += `
-        <div class="flex gap-2 justify-end">
-            <div class="bg-indigo-600 text-white p-2 rounded-xl text-xs max-w-[80%]">${query}</div>
-        </div>
-    `;
-
+    chatLogs.innerHTML += `<div class="flex gap-2 justify-end"><div class="bg-indigo-600 text-white p-2 rounded-xl text-xs">${query}</div></div>`;
     input.value = '';
     chatLogs.scrollTop = chatLogs.scrollHeight;
 
     setTimeout(() => {
-        let reply = "Saya asisten AI Laporan Sekolah. Silakan datang ke Ruang BK jam istirahat untuk verifikasi pengambilan barang temuan!";
-        if (query.toLowerCase().includes('syarat') || query.toLowerCase().includes('ambil')) {
-            reply = "Syarat mengambil barang: Bawa **Kartu Pelajar** aktif dan tunjukkan ciri fisik khusus atau nomor laporan barang Anda.";
-        }
-        chatLogs.innerHTML += `
-            <div class="flex gap-2 items-start">
-                <div class="bg-indigo-600 text-white p-1 rounded-full text-[10px]"><i class="fa-solid fa-robot"></i></div>
-                <div class="bg-white p-2 rounded-xl border text-xs text-slate-700 max-w-[80%]">${reply}</div>
-            </div>
-        `;
+        chatLogs.innerHTML += `<div class="flex gap-2 items-start"><div class="bg-indigo-600 text-white p-1 rounded-full text-[10px]"><i class="fa-solid fa-robot"></i></div><div class="bg-white p-2 rounded-xl border text-xs text-slate-700">Silakan bawa Kartu Pelajar ke Ruang BK untuk proses verifikasi.</div></div>`;
         chatLogs.scrollTop = chatLogs.scrollHeight;
     }, 500);
 }
